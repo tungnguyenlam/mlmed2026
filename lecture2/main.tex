@@ -1,5 +1,6 @@
 \documentclass[conference]{IEEEtran}
 \usepackage{graphicx}
+\usepackage{svg}
 
 \title{Report Practice 1: EGC Heartbeat Categorization using Random Forest and CNN}
 \author{Nguyen Lam Tung - 23BI14446}
@@ -26,7 +27,7 @@ The dataset contains in total 109446 samples and is splitted into 2 files. The t
 
 \begin{figure}[h]
     \centering
-    \includegraphics[width=\columnwidth]{fig/original_distribution.svg}
+    \includesvg[width=\columnwidth]{fig/original_distribution}
     \caption{Original class distribution in the training dataset}
     \label{fig:distribution}
 \end{figure}
@@ -37,7 +38,7 @@ For the resampling size of each class, I choose an arbitrary size of 20000 for e
 
 \begin{figure}[h]
     \centering
-    \includegraphics[width=\columnwidth]{fig/balanced_distribution.svg}
+    \includesvg[width=\columnwidth]{fig/balanced_distribution}
     \caption{Balanced class distribution in the training dataset}
     \label{fig:balanced_distribution}
 \end{figure}
@@ -75,7 +76,7 @@ In this study, I use 2 models to apply on the dataset. The first model is the Ra
 
 \begin{figure}[h]
     \centering
-    \includegraphics[width=\columnwidth]{fig/rf_original_confusion_matrix.svg}
+    \includesvg[width=\columnwidth]{fig/rf_original_confusion_matrix}
     \caption{Confusion matrix of the Random Forest model on the original dataset}
     \label{fig:rf_original_confusion_matrix}
 \end{figure}
@@ -105,7 +106,7 @@ In this study, I use 2 models to apply on the dataset. The first model is the Ra
 
 \begin{figure}[h]
     \centering
-    \includegraphics[width=\columnwidth]{fig/rf_balanced_confusion_matrix.svg}
+    \includesvg[width=\columnwidth]{fig/rf_balanced_confusion_matrix}
     \caption{Confusion matrix of the Random Forest model on the balanced dataset}
     \label{fig:rf_balanced_confusion_matrix}
 \end{figure}
@@ -120,14 +121,14 @@ The improvement for the model trained on the balanced dataset comes at the cost 
 
 \begin{figure}[h]
     \centering
-    \includegraphics[width=\columnwidth]{fig/cnn_original_history.svg}
+    \includesvg[width=\columnwidth]{fig/cnn_original_history}
     \caption{Training history of the CNN model on the original dataset}
     \label{fig:cnn_original_history}
 \end{figure}
 
 \begin{figure}[h]
     \centering
-    \includegraphics[width=\columnwidth]{fig/cnn_original_confusion_matrix.svg}
+    \includesvg[width=\columnwidth]{fig/cnn_original_confusion_matrix}
     \caption{Confusion matrix of the CNN model on the original dataset}
     \label{fig:cnn_original_confusion_matrix}
 \end{figure}
@@ -136,14 +137,14 @@ The improvement for the model trained on the balanced dataset comes at the cost 
 
 \begin{figure}[h]
     \centering
-    \includegraphics[width=\columnwidth]{fig/cnn_balanced_history.svg}
+    \includesvg[width=\columnwidth]{fig/cnn_balanced_history}
     \caption{Training history of the CNN model on the balanced dataset}
     \label{fig:cnn_balanced_history}
 \end{figure}
 
 \begin{figure}[h]
     \centering
-    \includegraphics[width=\columnwidth]{fig/cnn_balanced_confusion_matrix.svg}
+    \includesvg[width=\columnwidth]{fig/cnn_balanced_confusion_matrix}
     \caption{Confusion matrix of the CNN model on the balanced dataset}
     \label{fig:cnn_balanced_confusion_matrix}
 \end{figure}
