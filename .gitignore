@@ -1,2 +1,5 @@
 *main.aux
 *main.log
+
+*__pycache__*
+*__pycache__/*
