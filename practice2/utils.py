@@ -95,6 +95,49 @@ def get_latest_checkpoint(models_dir="models"):
     latest_epoch = max(epochs)
     return os.path.join(models_dir, f"checkpoint_epoch_{latest_epoch}.pth")
 
+def find_best_weights(models_dir="models"):
+    if not os.path.exists(models_dir):
+        return None
+
+    preferred_names = [
+        "best.pt",
+        "best.pth",
+        "best_unet_hc18.pth",
+    ]
+    for name in preferred_names:
+        path = os.path.join(models_dir, name)
+        if os.path.exists(path):
+            return path
+
+    candidates = []
+    for f in os.listdir(models_dir):
+        lower = f.lower()
+        if lower.startswith("best") and (lower.endswith(".pt") or lower.endswith(".pth")):
+            candidates.append(os.path.join(models_dir, f))
+    if candidates:
+        candidates.sort(key=lambda p: os.path.getmtime(p), reverse=True)
+        return candidates[0]
+
+    latest = get_latest_checkpoint(models_dir)
+    return latest
+
+def load_model_weights(weights_path, model, device="cpu"):
+    obj = torch.load(weights_path, map_location=device, weights_only=False)
+    if isinstance(obj, dict) and "model_state_dict" in obj:
+        model.load_state_dict(obj["model_state_dict"])
+        meta = {k: obj.get(k) for k in ["epoch", "val_loss"]}
+        return meta
+
+    if isinstance(obj, dict) and any(k.startswith(("inc.", "down", "up", "outc.")) for k in obj.keys()):
+        model.load_state_dict(obj)
+        return {}
+
+    if hasattr(obj, "state_dict"):
+        model.load_state_dict(obj.state_dict())
+        return {}
+
+    raise ValueError(f"Unrecognized weights format: {weights_path}")
+
 def save_checkpoint(epoch, model, optimizer, scheduler, val_loss, models_dir="models"):
     checkpoint = {
         'epoch': epoch,

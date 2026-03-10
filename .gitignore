@@ -1,14 +1,22 @@
-*main.aux
-*main.log
-
-*__pycache__*
-*__pycache__/*
-
-*.DS_Store*
-*.DS_Store/*
-
+# LaTeX
+*.aux
+*.log
+*.out
+*.toc
+*.fdb_latexmk
+*.fls
+*.synctex.gz
+*.bbl
+*.blg
 *.pdf
 
-*model/
-*models/
-*results/
+# Python
+__pycache__/
+*.py[cod]
+
+# OS
+.DS_Store
+
+# Project
+models/
+results/

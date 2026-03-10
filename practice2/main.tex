@@ -1,40 +1,135 @@
 \documentclass[conference]{IEEEtran}
 \usepackage{graphicx}
 \usepackage{svg}
+\usepackage{amsmath}
+\usepackage{hyperref}
 
-\title{Report Practice 2: Fetal Head Segmentation using UNet on HC18 Dataset}
+\title{Report Practice 2: Fetal Head Segmentation using U-Net on HC18 Dataset}
 \author{Nguyen Lam Tung - 23BI14446}
-\date{4th, February, 2026}
 
 \begin{document}
 
 \maketitle
 
 \begin{abstract}
-
-
+On this practice, we explore automatic fetal head segmentation on the HC18 ultrasound dataset using a U-Net convolutional neural network. The dataset consists of 999 training images and 335 test images. Since the testset results from the challenge is not published. We train the model on a split of the training set and evaluate it on a remaining validation set. Our best model achieves a mean Dice score of 0.9686, mean IoU of 0.9419, pixel accuracy of 0.9852, and a mean absolute error (MAE) of 2.2964 mm for the estimated head circumference (HC).
 \end{abstract}
 
 \section{Introduction}
 
-
+This report presents the results of my practice 2 on the Fetal Head Circumference (HC18) dataset from Kaggle in the course of Machine Learning in Medicine. The task is to automatically segment the fetal head from ultrasound images and estimate the head circumference in millimeters. Accurate HC estimation is crucial for monitoring fetal growth and identifying potential abnormalities during pregnancy. My approach contains two main steps: first, semantic segmentation is used to detect the fetal head boundary, followed by an ellipse fitting algorithm to compute the circumference using OpenCV.
 
 \section{Dataset}
 
+The HC18 Grand Challenge dataset \cite{vandenheuvel2018automated} contains 1334 2D ultrasound images (999 training and 335 testing) with pixel sizes ranging from 0.052 to 0.326 mm. The images are of variable size and quality; however, approximately 97.6\% of both training and test sets have a resolution of $800 \times 540$ pixels.
 
+In this study, I randomly split the 999 training images into 80\% for training (799 samples) and 20\% for validation (200 samples) with a fixed random seed. The images are preprocessed by resizing to $256 \times 256$ pixels and normalizing pixel values to the range $[0, 1]$.
+
+\subsection{Exploratory Data Analysis}
+
+I performed an exploratory analysis of the training dataset to understand the distribution of acquisition parameters and biological measures. Figure \ref{fig:eda_dist} shows the distribution of pixel sizes and ground truth head circumferences. The pixel size distribution highlights the variability in image acquisition, while the head circumference distribution reflects the different stages of fetal development in the dataset. Figure \ref{fig:eda_scatter} shows the relationship between these two variables.
+
+\begin{figure}[!ht]
+    \centering
+    \includegraphics[width=0.48\columnwidth]{results/eda/pixel_size_dist.png}
+    \includegraphics[width=0.48\columnwidth]{results/eda/hc_dist.png}
+    \caption{Distribution of pixel sizes (left) and head circumferences (right) in the training set.}
+    \label{fig:eda_dist}
+\end{figure}
+
+\begin{figure}[!ht]
+    \centering
+    \includegraphics[width=0.8\columnwidth]{results/eda/scatter_pixel_vs_hc.png}
+    \caption{Scatter plot of pixel size vs. head circumference.}
+    \label{fig:eda_scatter}
+\end{figure}
 
 \section{Methodology}
 
+\subsection{Data Preprocessing and Architecture}
 
+I use a standard U-Net architecture for this segmentation task. To prepare the ground truth for training, I implemented a label extraction pipeline: annotation outline images are loaded, binarized, and filled to create solid binary masks where the fetal head region is 1 and the background is 0.
+
+The training configuration is shown in Table \ref{tab:training_config}. The practice was run on a Mac Mini M4 with 16GB of RAM.
+
+\begin{table}[!ht]
+    \centering
+    \caption{Training Configuration}
+    \label{tab:training_config}
+    \begin{tabular}{ll}
+    \hline
+    \textbf{Parameter} & \textbf{Value} \\
+    \hline
+    Architecture & U-Net \\
+    Input Resolution & $256 \times 256$ \\
+    Batch Size & 8 \\
+    Optimizer & Adam \\
+    Initial Learning Rate & $1\times10^{-4}$ \\
+    Scheduler & ReduceLROnPlateau \\
+    Loss Function & BCE + Dice Loss \\
+    Number of Epochs & 40 \\
+    \hline
+    \end{tabular}
+\end{table}
+
+\subsection{Measurement of Fetal Head Circumference}
+
+After obtaining the segmentation mask, the head circumference is computed by extracting the largest contour and fitting an ellipse using the direct least-squares method \cite{fitzgibbon1999direct}. The perimeter $P$ is estimated using Ramanujan's first approximation \cite{ramanujan1914modular}:
+\begin{equation}
+    P \approx \pi \left[ 3(a + b) - \sqrt{(3a + b)(a + 3b)} \right]
+\end{equation}
+where $a$ and $b$ are the semi-major and semi-minor axes respectively. The final circumference in millimeters is obtained by multiplying the perimeter by the pixel size: $HC_{mm} = P \times \text{pixel\_size}$.
 
 \section{Results}
 
+The quantitative results on the validation set are summarized in Table \ref{tab:val_metrics}. The model achieves high overlap scores and a low error in HC estimation.
 
+\begin{table}[!ht]
+    \centering
+    \caption{Validation Metrics for Fetal Head Segmentation}
+    \label{tab:val_metrics}
+    \begin{tabular}{lc}
+    \hline
+    \textbf{Metric} & \textbf{Value} \\
+    \hline
+    Mean Dice & 0.9686 \\
+    Mean IoU & 0.9419 \\
+    Pixel Accuracy & 0.9852 \\
+    Pixel Precision & 0.9776 \\
+    Pixel Recall & 0.9725 \\
+    HC MAE (mm) & 2.2964 \\
+    \hline
+    \end{tabular}
+\end{table}
+
+The training history is shown in Figure \ref{fig:training_history}. Both training and validation losses decrease steadily, indicating stable training.
+
+\begin{figure}[!ht]
+    \centering
+    \includegraphics[width=\columnwidth]{results/training_history.png}
+    \caption{Training and validation loss and validation MAE across 40 epochs}
+    \label{fig:training_history}
+\end{figure}
+
+Qualitative results are shown in Figure \ref{fig:qualitative_results}, confirming that the model accurately captures the fetal head contour.
+
+\begin{figure}[!ht]
+    \centering
+    \includegraphics[width=0.45\columnwidth]{results/eval_val_20260310-150855/viz/016_HC_viz.png}
+    \includegraphics[width=0.45\columnwidth]{results/eval_val_20260310-150855/viz/017_HC_viz.png}
+    \caption{Examples of fetal head segmentation on validation set.}
+    \label{fig:qualitative_results}
+\end{figure}
+
+\section{Discussion}
+
+The HC18 challenge \cite{vandenheuvel2018automated} provided a standardized platform for comparing different segmentation algorithms. The model achieved a Dice of 0.9686 and an HC MAE of 2.2964 mm. For comparison, the top methods on the HC18 Grand Challenge leaderboard achieve an MAE around 0.74 mm using more complex models like nnU-Net and significantly more training epochs. Our results show that even a standard U-Net can achieve high accuracy for this clinical task.
 
 \section{Conclusion}
 
+In this study, I implemented a U-Net model for fetal head segmentation using the HC18 dataset. The model achieved high accuracy and low error in head circumference estimation. Future work could explore data augmentation or more advanced architectures like CU-Net to further improve robustness.
 
-\section{Discussions}
-
+\bibliographystyle{IEEEtran}
+\bibliography{refs}
 
 \end{document}
