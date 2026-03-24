@@ -7,7 +7,6 @@ from typing import Optional
 import matplotlib.pyplot as plt
 import pandas as pd
 
-
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
@@ -20,14 +19,30 @@ def _load_metrics(csv_path: Path) -> Optional[pd.DataFrame]:
     return df
 
 
-def _plot_metrics(df: pd.DataFrame, title: str, out_path: Path):
+def _plot_metrics(df: pd.DataFrame, train_steps_df: Optional[pd.DataFrame], title: str, out_path: Path):
     fig, axes = plt.subplots(2, 2, figsize=(11, 9))
     fig.suptitle(title, fontsize=12)
 
     ax = axes[0, 0]
-    ax.plot(df["epoch"], df["train_loss"], label="train", marker="o", markersize=3)
-    ax.plot(df["epoch"], df["val_loss"], label="val", marker="s", markersize=3)
-    ax.set_xlabel("epoch")
+    if train_steps_df is not None and "global_step" in train_steps_df and "train_loss" in train_steps_df:
+        ax.plot(
+            train_steps_df["global_step"],
+            train_steps_df["train_loss"],
+            label="train (step)",
+            linewidth=1.0,
+            alpha=0.8,
+        )
+        if "global_step_end" in df:
+            val_x = df["global_step_end"]
+            ax.set_xlabel("step")
+        else:
+            val_x = df["epoch"]
+            ax.set_xlabel("step / epoch")
+    else:
+        ax.plot(df["epoch"], df["train_loss"], label="train (epoch avg)", marker="o", markersize=3)
+        val_x = df["epoch"]
+        ax.set_xlabel("epoch")
+    ax.plot(val_x, df["val_loss"], label="val", marker="s", markersize=3)
     ax.set_ylabel("loss")
     ax.set_title("Loss")
     ax.legend()
@@ -89,41 +104,27 @@ def _maybe_print_eval_summary(path: Path):
 
 
 def main():
-    p = argparse.ArgumentParser(description="Plot training metrics from metrics.csv and optional eval summary.json")
-    p.add_argument(
-        "--lung_dir",
-        default=os.path.join(SCRIPT_DIR, "results_lung"),
-        help="Folder with results_lung/metrics.csv",
-    )
-    p.add_argument(
-        "--infection_dir",
-        default=os.path.join(SCRIPT_DIR, "results_infection"),
-        help="Folder with results_infection/metrics.csv",
-    )
-    p.add_argument(
-        "--eval_run",
-        default=None,
-        help="Optional path to an evaluate.py output folder (summary.json)",
-    )
-    p.add_argument(
-        "--out_dir",
-        default=os.path.join(SCRIPT_DIR, "plots"),
-        help="Where to save training_curves_*.png",
-    )
+    p = argparse.ArgumentParser()
+    p.add_argument("--lung_dir", default=os.path.join(SCRIPT_DIR, "results_lung"))
+    p.add_argument("--infection_dir", default=os.path.join(SCRIPT_DIR, "results_infection"))
+    p.add_argument("--eval_run", default=None)
+    p.add_argument("--out_dir", default=os.path.join(SCRIPT_DIR, "plots"))
     args = p.parse_args()
 
     out_dir = Path(args.out_dir)
 
     for name, folder in (("lung", args.lung_dir), ("infection", args.infection_dir)):
         csv_path = Path(folder) / "metrics.csv"
+        train_steps_path = Path(folder) / "train_steps.csv"
         df = _load_metrics(csv_path)
+        train_steps_df = _load_metrics(train_steps_path)
         if df is None:
-            print(f"No metrics at {csv_path} (train first or check path).")
+            print(f"skip {name}: no {csv_path}")
             continue
         _print_tail(df, name)
         out_png = out_dir / f"training_curves_{name}.png"
-        _plot_metrics(df, f"{name} segmentation — training log", out_png)
-        print(f"Saved plot: {out_png}")
+        _plot_metrics(df, train_steps_df, f"{name} train log", out_png)
+        print(f"wrote {out_png}")
 
     if args.eval_run:
         eval_path = Path(args.eval_run)

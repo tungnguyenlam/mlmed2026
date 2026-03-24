@@ -64,16 +64,31 @@ class UNet(nn.Module):
 
 
 class BCEDiceLoss(nn.Module):
-    def __init__(self, pos_weight=None):
+    def __init__(self, pos_weight=None, bce_weight=0.5, dice_weight=0.5):
         super().__init__()
-        self.bce = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
+        self.bce = nn.BCEWithLogitsLoss(pos_weight=pos_weight, reduction="none")
+        self.bce_w = bce_weight
+        self.dice_w = dice_weight
 
-    def forward(self, inputs, targets, smooth=1.0):
-        bce = self.bce(inputs, targets)
+    def forward(self, inputs, targets, mask=None, smooth=1.0):
+        bce_map = self.bce(inputs, targets)
+        if mask is not None:
+            mask = mask.to(dtype=inputs.dtype)
+            bce = (bce_map * mask).sum() / mask.sum().clamp_min(1.0)
+        else:
+            bce = bce_map.mean()
+
+        B = inputs.shape[0]
         probs = torch.sigmoid(inputs)
-        probs_f = probs.reshape(-1)
-        targets_f = targets.reshape(-1)
-        intersection = (probs_f * targets_f).sum()
-        dice = (2.0 * intersection + smooth) / (probs_f.sum() + targets_f.sum() + smooth)
-        return bce + (1.0 - dice)
+        if mask is not None:
+            probs = probs * mask
+            targets = targets * mask
+        probs_flat = probs.reshape(B, -1)
+        targets_flat = targets.reshape(B, -1)
+        intersection = (probs_flat * targets_flat).sum(dim=1)
+        dice_per = (2.0 * intersection + smooth) / (
+            probs_flat.sum(dim=1) + targets_flat.sum(dim=1) + smooth
+        )
+        dice_loss = (1.0 - dice_per).mean()
 
+        return self.bce_w * bce + self.dice_w * dice_loss

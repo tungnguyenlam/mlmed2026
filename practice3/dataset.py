@@ -99,7 +99,7 @@ class CovidQuSegmentationDataset(Dataset):
         classes: Optional[list[str]] = None,
         target_size: tuple[int, int] = (256, 256),
         include_lung_roi_for_infection: bool = True,
-        transform: Optional[Callable[[torch.Tensor, torch.Tensor], tuple[torch.Tensor, torch.Tensor]]] = None,
+        transform: Optional[Callable[..., tuple[torch.Tensor, torch.Tensor]]] = None,
     ):
         if task not in {"lung", "infection"}:
             raise ValueError("task must be 'lung' or 'infection'")

@@ -1,11 +1,13 @@
 import os
 os.environ.setdefault("PYTORCH_ENABLE_MPS_FALLBACK", "1")
 
-import json
 import argparse
+import json
 from pathlib import Path
 
+import cv2
 import numpy as np
+import pandas as pd
 import torch
 
 import dataset
@@ -117,9 +119,8 @@ def main():
                         dict(img=img01, gt=gt01, pred=pred, filename=str(filename))
                     )
                     out_mask = (pred * 255).astype(np.uint8)
-                    (pred_dir / f"{Path(filename).stem}_pred.png").write_bytes(
-                        __import__("cv2").imencode(".png", out_mask)[1].tobytes()
-                    )
+                    _, png_bytes = cv2.imencode(".png", out_mask)
+                    (pred_dir / f"{Path(filename).stem}_pred.png").write_bytes(png_bytes.tobytes())
 
     mean_dice = float(np.mean(dice_list)) if dice_list else float("nan")
     mean_iou = float(np.mean(iou_list)) if iou_list else float("nan")
@@ -144,8 +145,6 @@ def main():
     )
 
     (run_dir / "summary.json").write_text(json.dumps(summary, indent=2))
-    import pandas as pd
-
     pd.DataFrame(rows).to_csv(run_dir / "predictions.csv", index=False)
     if viz_items:
         utils.save_viz_folder(str(run_dir / "qualitative"), viz_items)

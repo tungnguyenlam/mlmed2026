@@ -125,7 +125,6 @@ def overlay(image01: np.ndarray, mask01: np.ndarray, color=(0, 1, 0), alpha=0.45
 
 
 def match_overlay(image01: np.ndarray, gt01: np.ndarray, pred01: np.ndarray, alpha=0.55):
-    """TP=green, FP=red, FN=blue on gray image."""
     img = np.clip(image01, 0, 1)
     if img.ndim == 2:
         base = np.stack([img, img, img], axis=-1)
@@ -166,13 +165,13 @@ def save_viz_folder(out_dir: str, items: list[dict]):
         out_png = os.path.join(out_dir, f"sample_{idx + 1:03d}.png")
         fig, axes = plt.subplots(1, 3, figsize=(12, 4))
         axes[0].imshow(overlay(img, gt))
-        axes[0].set_title("GT overlay")
+        axes[0].set_title("GT")
         axes[0].axis("off")
         axes[1].imshow(overlay(img, pred))
-        axes[1].set_title("Pred overlay")
+        axes[1].set_title("Pred")
         axes[1].axis("off")
         axes[2].imshow(match_overlay(img, gt, pred))
-        axes[2].set_title("Match (green=TP, red=FP, blue=FN)")
+        axes[2].set_title("TP / FP / FN")
         axes[2].axis("off")
         plt.tight_layout()
         plt.savefig(out_png, dpi=140)

@@ -14,13 +14,14 @@ from model import UNet, BCEDiceLoss
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-BATCH_SIZE = 8
-LR = 1e-4
-EPOCHS = 10
-TARGET_SIZE = (256, 256)
+BATCH_SIZE = 32
+LR = 5e-5
+EPOCHS = 5
+TARGET_SIZE = (128, 128)
 SEED = 3407
 MODELS_DIR = os.path.join(SCRIPT_DIR, "models_infection")
 RESULTS_DIR = os.path.join(SCRIPT_DIR, "results_infection")
+TRAIN_STEPS_CSV = os.path.join(RESULTS_DIR, "train_steps.csv")
 THR = 0.5
 USE_LUNG_ROI = True
 WEIGHT_DECAY = 1e-4
@@ -42,8 +43,21 @@ def train(total_epochs: int = EPOCHS):
         include_lung_roi_for_infection=USE_LUNG_ROI,
     )
 
+    total_pos = 0.0
+    total_neg = 0.0
+    for _, masks, lung_roi, _ in train_loader:
+        if USE_LUNG_ROI:
+            total_pos += float((masks * lung_roi).sum().item())
+            total_neg += float((lung_roi.sum() - (masks * lung_roi).sum()).item())
+        else:
+            total_pos += float(masks.sum().item())
+            total_neg += float(masks.numel() - masks.sum().item())
+    pw = total_neg / max(total_pos, 1.0)
+    print(f"pos_weight: {pw:.4f}")
+
     model = UNet(n_channels=1, n_classes=1).to(device)
-    loss_fn = BCEDiceLoss()
+    loss_fn = BCEDiceLoss(pos_weight=torch.tensor([pw]).to(device))
+
     optimizer = optim.AdamW(model.parameters(), lr=LR, weight_decay=WEIGHT_DECAY)
     scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=total_epochs, eta_min=LR * 0.05)
 
@@ -62,14 +76,14 @@ def train(total_epochs: int = EPOCHS):
         model.train()
         train_loss = 0.0
         loop = tqdm(train_loader, desc=f"Epoch {epoch+1}/{total_epochs} [Train]")
-        for images, masks, lung_roi, _ in loop:
+        for step_idx, (images, masks, lung_roi, _) in enumerate(loop, start=1):
             images = images.to(device)
             masks = masks.to(device)
             lung_roi = lung_roi.to(device) if lung_roi is not None else None
 
             logits = model(images)
             if USE_LUNG_ROI:
-                loss = loss_fn(logits * lung_roi, masks * lung_roi)
+                loss = loss_fn(logits, masks, mask=lung_roi)
             else:
                 loss = loss_fn(logits, masks)
 
@@ -77,8 +91,20 @@ def train(total_epochs: int = EPOCHS):
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), CLIP_NORM)
             optimizer.step()
-            train_loss += float(loss.item())
-            loop.set_postfix(loss=float(loss.item()))
+            loss_value = float(loss.item())
+            train_loss += loss_value
+            global_step = epoch * len(train_loader) + step_idx
+            utils.save_metrics_row(
+                TRAIN_STEPS_CSV,
+                dict(
+                    epoch=epoch + 1,
+                    step_in_epoch=step_idx,
+                    global_step=global_step,
+                    train_loss=loss_value,
+                    lr=float(optimizer.param_groups[0]["lr"]),
+                ),
+            )
+            loop.set_postfix(loss=loss_value)
 
         avg_train_loss = train_loss / max(len(train_loader), 1)
 
@@ -97,7 +123,7 @@ def train(total_epochs: int = EPOCHS):
 
                 logits = model(images)
                 if USE_LUNG_ROI:
-                    loss = loss_fn(logits * lung_roi, masks * lung_roi)
+                    loss = loss_fn(logits, masks, mask=lung_roi)
                 else:
                     loss = loss_fn(logits, masks)
                 val_loss += float(loss.item())
@@ -158,6 +184,7 @@ def train(total_epochs: int = EPOCHS):
             os.path.join(RESULTS_DIR, "metrics.csv"),
             dict(
                 epoch=epoch + 1,
+                global_step_end=(epoch + 1) * len(train_loader),
                 train_loss=avg_train_loss,
                 val_loss=avg_val_loss,
                 mean_dice=mean_dice,
@@ -175,7 +202,6 @@ def train(total_epochs: int = EPOCHS):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--epochs", type=int, default=EPOCHS, help="Total epochs to train (use > current to continue)")
+    parser.add_argument("--epochs", type=int, default=EPOCHS)
     args = parser.parse_args()
     train(total_epochs=args.epochs)
-

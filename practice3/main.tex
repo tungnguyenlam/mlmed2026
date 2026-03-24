@@ -1,0 +1,117 @@
+\documentclass[conference]{IEEEtran}
+\usepackage{graphicx}
+\usepackage{hyperref}
+
+\title{Report Practice 3: Lung and Infection Segmentation using U-Net}
+\author{Nguyen Lam Tung - 23BI14446}
+\date{March 25, 2026}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+This report presents the result of my practice 3 on the COVID-QU-Ex chest X-ray dataset. In this practice, I train a U-Net model for 2 segmentation tasks: lung segmentation and infection segmentation. The dataset already provides train, validation and test split together with the corresponding masks, so I focus on building a clean baseline pipeline with resizing, normalization, BCE + Dice loss and checkpoint based training. The model performs very well on lung segmentation, reaching a Dice score of 0.9765 and IoU of 0.9547 on the validation set. Infection segmentation is more difficult, but the model still achieves a Dice score of 0.7220 and IoU of 0.6711. The results show that a standard U-Net is already strong for the lung task, while the infection task still has more room for improvement.
+
+\end{abstract}
+
+\section{Introduction}
+
+This report presents the result of my practice 3 on the COVID-QU-Ex dataset from Kaggle \cite{tahir2021infection,covidqu_kaggle}. The dataset contains chest X-ray images for COVID-19, Non-COVID and Normal cases. In this study, I use the provided masks to solve 2 semantic segmentation problems. The first problem is lung segmentation, where the model predicts the whole lung region. The second problem is infection segmentation, where the model predicts the infected area in the chest X-ray.
+
+The goal of this practice is not to build a very complicated method, but to implement a stable baseline and compare how the same U-Net behaves on an easier structure segmentation task and on a harder lesion segmentation task.
+
+\section{Dataset}
+
+The dataset used in this study is COVID-QU-Ex. For lung segmentation, the dataset contains 21715 training images, 5417 validation images and 6788 test images. For infection segmentation, only a smaller subset has infection masks, with 3728 training images, 932 validation images and 1166 test images.
+
+For both tasks, the data is divided into 3 categories: COVID-19, Non-COVID and Normal. In the lung segmentation task, all classes have lung masks. In the infection segmentation task, Normal cases usually contain empty infection masks, which makes the problem more imbalanced.
+
+To prepare the data for training, I resize all images and masks to $128 \times 128$. The image intensity is normalized to the range $[0,1]$. The masks are converted into binary masks, where the foreground region is 1 and the background is 0.
+
+\section{Methodology}
+
+In this practice, I use a standard U-Net architecture for both tasks. The model takes a single channel chest X-ray image as input and outputs a single channel segmentation mask. The encoder and decoder follow the common U-Net design with skip connections between the downsampling path and upsampling path.
+
+For training, I use the AdamW optimizer with learning rate $5 \times 10^{-5}$ and weight decay $10^{-4}$. The batch size is 16 and the model is trained for 5 epochs. The loss function is a combination of Binary Cross Entropy loss and Dice loss. This combination helps the model learn both pixel-wise classification and region overlap quality at the same time.
+
+For infection segmentation, I additionally restrict the loss and evaluation inside the lung region using the provided lung mask. This makes the training more reasonable, because infection should only appear inside the lungs. I also use a positive class weight for this task because the number of infection pixels is much smaller than the background pixels.
+
+\section{Results}
+
+\subsection{Lung Segmentation}
+
+\begin{table}[h]
+    \centering
+    \caption{Validation Metrics for Lung Segmentation}
+    \label{tab:lung_metrics}
+    \begin{tabular}{lc}
+    \hline
+    \textbf{Metric} & \textbf{Value} \\
+    \hline
+    Mean Dice & 0.9765 \\
+    Mean IoU & 0.9547 \\
+    Pixel Accuracy & 0.9897 \\
+    Pixel Precision & 0.9771 \\
+    Pixel Recall & 0.9788 \\
+    \hline
+    \end{tabular}
+\end{table}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\columnwidth]{results_lung/viz_epoch_5/sample_001.png}
+    \caption{Example lung segmentation result on the validation set.}
+    \label{fig:lung_viz}
+\end{figure}
+
+The lung segmentation result is very strong. The Dice score of 0.9765 and IoU of 0.9547 show that the predicted lung masks overlap very well with the ground truth masks. This is also supported by the high pixel accuracy of 0.9897. From the visualization, we can see that the model can follow the lung boundary quite accurately.
+
+This result is expected, because the lung region is a relatively large and clear anatomical structure in chest X-ray images. Compared to infection segmentation, the target is less sparse and more consistent between patients, so the model can learn it more easily.
+
+\subsection{Infection Segmentation}
+
+\begin{table}[h]
+    \centering
+    \caption{Validation Metrics for Infection Segmentation}
+    \label{tab:infection_metrics}
+    \begin{tabular}{lc}
+    \hline
+    \textbf{Metric} & \textbf{Value} \\
+    \hline
+    Mean Dice & 0.7220 \\
+    Mean IoU & 0.6711 \\
+    Pixel Accuracy & 0.9733 \\
+    Pixel Precision & 0.7632 \\
+    Pixel Recall & 0.8903 \\
+    \hline
+    \end{tabular}
+\end{table}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\columnwidth]{results_infection/viz_epoch_5/sample_001.png}
+    \caption{Example infection segmentation result on the validation set.}
+    \label{fig:infection_viz}
+\end{figure}
+
+The infection segmentation result is lower than the lung segmentation result, which is reasonable. Infection regions are smaller, more irregular and more difficult to define than the lung boundary. The model achieves a Dice score of 0.7220 and IoU of 0.6711. The pixel recall is quite high at 0.8903, while the precision is lower at 0.7632. This means the model can detect most of the infected area, but it still predicts some false positive regions.
+
+From the training log, the infection model improves gradually across the 5 epochs. The validation loss decreases from 0.6471 in the first epoch to 0.4973 in the fifth epoch. This suggests that the model is still learning and could likely improve further with more epochs or stronger augmentation.
+
+\section{Conclusion}
+
+In this study, I implemented a U-Net model for lung segmentation and infection segmentation on the COVID-QU-Ex dataset. The lung segmentation task achieves very high performance, showing that the standard U-Net is already enough for this problem. The infection segmentation task is much harder, but the model still gives a reasonable result with Dice score above 0.72.
+
+Overall, this practice shows that the same segmentation pipeline can behave very differently depending on the difficulty of the target structure. Large and stable anatomical structures such as lungs are easier to segment, while small and irregular pathological regions such as infection remain more challenging.
+
+\section{Discussions}
+
+When comparing the 2 tasks, the biggest difference comes from the nature of the masks. Lung masks are large and have a consistent shape, while infection masks are sparse and highly variable. Because of that, the lung model converges quickly and reaches very high overlap scores. The infection model needs more support from the loss design and lung region masking, and even then the result is still clearly lower.
+
+There are several possible ways to improve the infection task. One simple direction is to train for more epochs. Another direction is to use data augmentation such as random flips, affine transforms or intensity perturbation. It may also help to use a stronger backbone or attention based segmentation model. However, for a baseline practice, the current U-Net result is already acceptable and shows the main difference between the two segmentation problems clearly.
+
+\bibliographystyle{IEEEtran}
+\bibliography{refs}
+
+\end{document}
